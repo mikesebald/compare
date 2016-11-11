@@ -1,0 +1,277 @@
+
+---
+title: "Comparing Validation Results of Different CDH Installations"
+output: 
+  revealjs::revealjs_presentation: 
+    theme: sky
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(data.table)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(xlsx)
+
+file.member.a <- "../compare_data/valid-15.4.csv"
+file.member.b <- "../compare_data/valid-16.1.csv"
+
+sourcename.a <- "CDH 15.4"
+sourcename.b <- "CDH 16.1"
+
+ncol.member.a <- 113
+ncol.member.b <- 116
+
+system.time(
+  dt.member.all.a <- fread(
+    file.member.a,
+    sep = ",",
+    header = TRUE,
+    na.strings = NULL,
+    encoding = "UTF-8",
+    colClasses = rep("character", ncol.member.a)
+  )
+)
+system.time(
+  dt.member.all.b <- fread(
+    file.member.b,
+    sep = ",",
+    header = TRUE,
+    na.strings = NULL,
+    encoding = "UTF-8",
+    colClasses = rep("character", ncol.member.b)
+  )
+)
+
+colnames.member.a <- colnames(dt.member.all.a)
+colnames.member.b <- colnames(dt.member.all.b)
+
+length(colnames.member.a) <- max(length(colnames.member.a), 
+                                 length(colnames.member.b))
+length(colnames.member.b) <- max(length(colnames.member.a), 
+                                 length(colnames.member.b))
+
+column.member.names <- data.frame(colnames.member.a,
+                                  colnames.member.b,
+                                  colnames.member.a == colnames.member.b,
+                                  stringsAsFactors = FALSE)
+
+relevant.member.columns <- c(1:2, 63:82)
+dt.member.a <- dt.member.all.a[, relevant.member.columns, 
+                               with = FALSE]
+dt.member.b <- dt.member.all.b[, relevant.member.columns, 
+                               with = FALSE]
+
+rm(dt.member.all.a, dt.member.all.b)
+
+colnames.member.a <- colnames(dt.member.a)
+colnames.member.b <- colnames(dt.member.b)
+
+column.member.names <- data.frame(colnames.member.a,
+                                  colnames.member.b,
+                                  colnames.member.a == colnames.member.b,
+                                  stringsAsFactors = FALSE)
+
+count.a <- data.table(count(dt.member.a, record.key))
+count.b <- data.table(count(dt.member.b, record.key))
+
+unique.keys.a <- unique(dt.member.a,
+                        by = c("record.source", "record.key"))$record.key
+unique.keys.b <- unique(dt.member.b,
+                        by = c("record.source", "record.key"))$record.key
+
+nrow.a <- nrow(dt.member.a)
+nrow.b <- nrow(dt.member.b)
+max.rows <- max(nrow.a, nrow.b)
+total.rows <- data.frame(c(sourcename.a, sourcename.b),
+                         c(nrow.a, nrow.b),
+                         c((max.rows - nrow.a), (max.rows - nrow.b)),
+                         stringsAsFactors = FALSE)
+colnames(total.rows) <- c("system", "rows", "difference")
+
+dt.member.a[with = FALSE] %>%
+  subset(postal_address.type != "") %>%
+  unique() -> address.a
+
+dt.member.b[with = FALSE] %>%
+  subset(postal_address.type != "") %>%
+  unique() -> address.b
+
+nrow.address.a <- nrow(address.a)
+nrow.address.b <- nrow(address.b)
+
+max.rows <- max(nrow.address.a, nrow.address.b)
+address.rows <- data.frame(c(sourcename.a, sourcename.b),
+                           c(nrow.address.a, nrow.address.b),
+                           c((max.rows - nrow.address.a),
+                             (max.rows - nrow.address.b)),
+                           stringsAsFactors = FALSE)
+colnames(address.rows) <- c("system", "rows", "difference")
+
+rm(dt.member.a, dt.member.b)
+
+setkeyv(address.a, c("record.source", "record.key", "postal_address.type"))
+setkeyv(address.b, c("record.source", "record.key", "postal_address.type"))
+system.time(address.ab <- merge(address.a, address.b))
+
+colnames(address.ab) <- gsub("\\.x$", ".a", colnames(address.ab))
+colnames(address.ab) <- gsub("\\.y$", ".b", colnames(address.ab))
+
+nrow.address.ab <- nrow(address.ab)
+
+temp <- cbind(address.b, x = "X")
+merge(address.a, temp, all.x = TRUE) %>%
+  subset(is.na(x)) -> uniques.a
+
+temp <- cbind(address.a, x = "X")
+merge(address.b, temp, all.x = TRUE) %>%
+  subset(is.na(x)) -> uniques.b
+
+rm(temp)
+
+differents <- data.frame(system = c(sourcename.a, sourcename.b),
+                         counts = c(nrow(uniques.a), nrow(uniques.b)))
+
+ncol.address <- ncol(address.a) - 3
+df.address.ab <- as.data.frame(address.ab)
+is.equal <- vector(length = nrow(address.ab))
+system.time(
+  for (j in 4:(ncol.address + 3)) {
+    is.equal <- df.address.ab[j] == df.address.ab[j + ncol.address]
+    df.address.ab <- cbind(df.address.ab, is.equal)
+  }
+)
+
+col.start <- ncol.address * 2 + 4
+col.end <- ncol(df.address.ab)
+
+colnames(df.address.ab)[col.start:col.end] <-
+  gsub("\\.a$", ".equal", colnames(df.address.ab[col.start:col.end]))
+
+system.time(same <- which(
+  rowSums(!df.address.ab[col.start : col.end]) == 0))
+
+system.time(different <- which(
+  rowSums(!df.address.ab[col.start : col.end]) > 0))
+
+system.time(df_different <- df.address.ab[different,])
+system.time(df_same <- df.address.ab[same,])
+
+col.sums <- colSums(!df_different[col.start:col.end])
+col.names <- gsub(".equal", "", colnames(df_different[col.start:col.end])) %>%
+  gsub(pattern = "postal_address.", replacement = "") 
+df_columns <- data.frame(attributes = col.names, occurences = col.sums)
+```
+
+<!--
+## Challenge {data-transition="zoom"}
+
+- A customer want's to upgrade to a next version of the Uniser Customer Data 
+Hub. Such an upgrade usually includes new versions of Post, reference tables, 
+convertName and CDH itself.
+
+> - Since there are so many changes involved with such an upgrade, we want to 
+be sure that the actual results created by such are an installation are at least 
+of the same quality than in the previous or current software stack. We may also 
+want to provide such evidence to the customer who wants to perform the upgrade.
+
+## Approach {data-transition="slide-in fade-out"}
+
+- Since the validation results are created by Uniserv components, the idea was 
+to explicitly NOT use any existing Uniserv software. However using software 
+from any of our competitors is of course a no-go as well. So we decided to 
+perform  the comparison by solely using **publicly available open-source 
+software**.
+
+> - Considering the highly customizable data model of CDH which allows for 
+customer specific data models, the appraoch must be flexible to analyse such 
+differences and to adapt the model accordingly. Therefore we followed an 
+**exploratory data analysis** approach.
+
+> - Finally we wanted to have something which allows us to *publish* the 
+results in different ways (a presentation or reports in PDF or Word or 
+whatever) according to the specific needs of the analysis - with **minimal 
+effort**.
+
+## How did we do it?
+
+We have decided to use **R** to perform the comparison for the following 
+reasons:
+
+- R is open source (GPL-2|GPL-3)
+- R is an object-oriented interactive language which is perfectly suited for 
+analyzing and processing data step by step
+- R provides out-of-the-box functionality to create data analysis reports (this 
+presentation is created using so called R markdown)
+
+For further reading go to
+<http://www.nytimes.com/2009/01/07/technology/business-computing/07program.html>
+
+## So what did we do?
+
+- The first question was: where do we get the data from? Since the analysis was
+done in the context of a CDH project, we decided to use the **CSV export feature
+provided by CDH**.
+
+- Next we loaded these exports into R and started analyzing. During the 
+analysis we found out that we forgot to ask the most important question: what 
+are we looking for or what are our KPIs we want to create? Luckily R is 
+perfectly suited to go into various directions and to **explore** the data as 
+you go.
+
+- At the end we *wrote* the report (this presentation) about our findings.
+
+## Hurdles
+
+There are two issues (Ticket 5426) in the CSV export of CDH 15.4:
+
+1. All status columns are empty
+2. The columns member.source, member.key, and labels are missing in the golden 
+record export
+
+Unfortunately this does not allow us to compare the matching results, because we
+just have golden record IDs but no member IDs to compare
+
+Secondly we can only compare valid records. However, it would have been nice to
+compare *all* valid addresses and not just the addresses of valid records.
+-->
+## Comparing CDH 15.4 and 16.1
+
+Number of member records in both CDH versions:
+
+```{r, echo = FALSE}
+plot.rows <- plot_ly(total.rows, x = system, y = rows, 
+                     name = "Valid Rows", type = "bar")
+layout(plot.rows, barmode = "stack", legend = list(x = 1.0, y = 0.5))
+```
+
+## Valid in A, but not in B
+
+We also had records which are valid in just one system, but not in the other 
+system:
+
+```{r, echo = FALSE}
+plot.differents <- plot_ly(differents, x = system, y = counts, 
+                           name = "Records which are valid in just one system", 
+                           type = "bar")
+layout(plot.differents, barmode = "stack", legend = list(x = 1.0, y = 0.5))
+```
+
+## So why did we have such records?
+
+Example:
+
+## Which postal address attributes are different
+
+Which of the postal address attributes are different and how many are different?
+
+```{r, echo = FALSE}
+plot.differents <- plot_ly(df_columns, x = attributes, y = occurences, 
+                           name = "Number of Differences per Attributes", 
+                           type = "bar")
+layout(plot.differents, autosize = FALSE, height = 300, barmode = "stack")
+```
+
+## End

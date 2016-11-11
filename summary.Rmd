@@ -1,0 +1,145 @@
+
+---
+title: "Comparing Validation Results of Different CDH Installations"
+output: 
+  ioslides_presentation:
+    widescreen: true
+    smaller: true
+    transition: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(data.table)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+
+file.member.a <- "../compare_data/valid-15.4.csv"
+file.member.b <- "../compare_data/valid-16.1.csv"
+
+ncol.member.a <- 113
+ncol.member.b <- 116
+
+system.time(
+  dt.member.all.a <- fread(
+    file.member.a,
+    sep = ",",
+    header = TRUE,
+    na.strings = NULL,
+    encoding = "UTF-8",
+    colClasses = rep("character", ncol.member.a)
+  )
+)
+system.time(
+  dt.member.all.b <- fread(
+    file.member.b,
+    sep = ",",
+    header = TRUE,
+    na.strings = NULL,
+    encoding = "UTF-8",
+    colClasses = rep("character", ncol.member.b)
+  )
+)
+
+relevant.member.columns <- c(1:2, 4:5, 9:32, 62:87, 92:98)
+dt.member.a <- dt.member.all.a[, relevant.member.columns, 
+                               with = FALSE]
+dt.member.b <- dt.member.all.b[, relevant.member.columns, 
+                               with = FALSE]
+
+rm(dt.member.all.a, dt.member.all.b)
+
+nrow.a <- nrow(dt.member.a)
+nrow.b <- nrow(dt.member.b)
+max.rows <- max(nrow.a, nrow.b)
+total.rows <- data.frame(c("CDH 15.4", "CDH 16.1"),
+                         c(nrow.a, nrow.b),
+                         c((max.rows - nrow.a), (max.rows - nrow.b)),
+                         stringsAsFactors = FALSE)
+colnames(total.rows) <- c("system", "rows", "difference")
+```
+
+## Challenge
+
+A customer want's to upgrade to a next version of the Uniser Customer Data Hub.
+Such an upgrade usually includes new versions of Post, reference tables, 
+convertName and CDH itself.
+
+Since there are so many changes involved with such an upgrade, we want to be 
+sure that the actual results created by such are an installation are at least 
+of the same quality than in the previous or current software stack. We may also 
+want to provide such evidence to the customer who wants to perform the upgrade.
+
+## Approach
+
+Since the validation results are created by Uniserv components, the idea was to 
+explicitly NOT use any existing Uniserv software. However using software from
+any of our competitors is of course a no-go as well. So we decided to perform 
+the comparison by solely using **publicly available open-source software**.
+
+Considering the highly customizable data model of CDH which allows for customer
+specific data models, the appraoch must be flexible to analyse such differences
+and to adapt the model accordingly. Therefore we followed an **exploratory data 
+analysis** approach.
+
+Finally we wanted to have something which allows us to *publish* the results in
+different ways (a presentation or reports in PDF or Word or whatever) according
+to the specific needs of the analysis - with **minimal effort**.
+
+## How did we do it?
+
+We have decided to use **R** to perform the comparison for the following 
+reasons:
+
+- R is open source (GPL-2|GPL-3)
+- R is an object-oriented interactive language which is perfectly suited for 
+analyzing and processing data step by step
+- R provides out-of-the-box functionality to create data analysis reports (this 
+presentation is created using so called R markdown)
+
+For further reading go to
+<http://www.nytimes.com/2009/01/07/technology/business-computing/07program.html>
+
+## So what did we do?
+
+The first question was: where do we get the data from? Since the analysis was
+done in the context of a CDH project, we decided to use the **CSV export feature
+provided by CDH**.
+
+Next we loaded these exports into R and started analyzing. During the analysis
+we found out that we forgot to ask the most important question: what are we 
+looking for or what are our KPIs we want to create? Luckily R is perfectly 
+suited to go into various directions and to **explore** the data as you go.
+
+At the end we *wrote* the report (this presentation) about our findings.
+
+## Hurdles
+
+There are two issues (Ticket 5426) in the CSV export of CDH 15.4:
+
+1. All status columns are empty
+2. The columns member.source, member.key, and labels are missing in the golden 
+record export
+
+Unfortunately this does not allow us to compare the matching results, because we
+just have golden record IDs but no member IDs to compare
+
+Secondly we can only compare valid records. However, it would have been nice to
+compare *all* valid addresses and not just the addresses of valid records.
+
+## Comparing CDH 15.4 and 16.1
+
+Number of member records in both CDH versions:
+
+```{r, echo = FALSE}
+plot.rows <- plot_ly(total.rows, x = system, y = rows, 
+                     name = "Valid Rows", type = "bar") %>%
+  add_trace(x = system, y = difference, name = "Difference")
+layout(plot.rows, barmode = "stack")
+```
+
+
+
+## End

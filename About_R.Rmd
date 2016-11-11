@@ -1,0 +1,66 @@
+
+---
+title: "R"
+author: Michael Sebald
+date: 26. April 2016
+output: 
+  revealjs::revealjs_presentation: 
+    theme: sky
+---
+
+## Was ist R und warum? {data-transition="zoom"}
+
+- R ist eine freie Programmiersprache 
+- existiert seit 1993
+- entwickelt an der Universität Auckland
+- ursprünglich Interpreter-basiert
+- Platz 6 beim Ranking des IEEE Spectrum 2015 
+- R ist open source (GPL-2|GPL-3)
+
+<http://www.nytimes.com/2009/01/07/technology/business-computing/07program.html>
+
+## Und was ist das Besondere? {data-transition="slide-in fade-out"}
+
+> - CRAN - The Comprehensive R Archive Network (ca. 8.000 Pakete)
+> - Bioconductor (> 1.000 Pakete)
+> - GitHub (...?)
+> - Statistik, maschinelles Lernen, Visualisierungen, Computerlinguistik, ...
+
+## Schnittstellen zu anderer Software {data-transition="zoom-in slide-out"}
+
+- SPSS, SAS, Matlab, Weka, ...
+- Excel, XML, JSON, CSV, ...
+- ODBC, MongoDB, Elasticsearch, ...
+- Reporting in Word, HTML, LaTeX, ...
+
+## Einbindung in kommerzielle Software  {data-transition="convex"}
+
+> - 2015 kaufte Microsoft Revolution Analytics
+> - MS SQL Server 2016 bietet nativen Support für R
+> - Azure bietet R als Platform-as-a-Service
+> - Bereits seit 2010 ist R in IBM Netezza eingebunden, um in-database-Analytics zu ermöglichen
+> - SAP HANA ermöglicht die Einbindung von R
+
+## Entwicklungs-umgebungen {data-transition="concave-in convex-out"}
+
+- Atom
+- Visual Studio
+- RStudio
+- Vim
+- Notepad++
+- TextWrangler
+- ...
+
+## Links {data-transition="slide-in fade-out"}
+
+Große R Anwender:
+
+<http://www.revolutionanalytics.com/companies-using-r>
+
+Aktuelle Infos:
+
+<http://www.r-bloggers.com/>
+
+Johns Hopkins University Einführungskurs auf Coursera:
+
+<https://www.coursera.org/specializations/jhu-data-science>
